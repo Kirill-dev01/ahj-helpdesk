@@ -1,6 +1,5 @@
 export default class HelpDesk {
     constructor() {
-        // Предполагаем, что бэкенд запущен локально на порту 7070
         this.apiUrl = 'http://localhost:7070';
 
         // Элементы списка
@@ -101,63 +100,104 @@ export default class HelpDesk {
     async loadTickets() {
         try {
             const response = await fetch(`${this.apiUrl}/?method=allTickets`);
+            if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`);
+            
             const tickets = await response.json();
             this.renderTickets(tickets);
         } catch (e) {
-            console.error('Ошибка загрузки тикетов. Убедитесь, что сервер запущен на порту 7070', e);
+            console.error('Ошибка загрузки тикетов:', e);
+            alert('Не удалось загрузить тикеты с сервера. Попробуйте обновить страницу.');
         }
     }
 
     async createTicket(data) {
-        await fetch(`${this.apiUrl}/?method=createTicket`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        this.hideModal(this.ticketModal);
-        this.loadTickets();
+        try {
+            const response = await fetch(`${this.apiUrl}/?method=createTicket`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`);
+            
+            this.hideModal(this.ticketModal);
+            this.loadTickets(); // Перезагружаем список после создания
+        } catch (e) {
+            console.error('Ошибка создания тикета:', e);
+            alert('Не удалось создать тикет. Проверьте соединение с сервером.');
+        }
     }
 
     async updateTicket(id, data) {
-        await fetch(`${this.apiUrl}/?method=updateById&id=${id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        this.hideModal(this.ticketModal);
-        this.loadTickets();
+        try {
+            const response = await fetch(`${this.apiUrl}/?method=updateById&id=${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`);
+            
+            this.hideModal(this.ticketModal);
+            this.loadTickets(); // Перезагружаем список после обновления
+        } catch (e) {
+            console.error('Ошибка обновления тикета:', e);
+            alert('Не удалось обновить тикет. Попробуйте еще раз.');
+        }
     }
 
     async deleteTicket(id) {
-        await fetch(`${this.apiUrl}/?method=deleteById&id=${id}`);
-        this.hideModal(this.deleteModal);
-        this.loadTickets();
+        try {
+            const response = await fetch(`${this.apiUrl}/?method=deleteById&id=${id}`);
+            if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`);
+            
+            this.hideModal(this.deleteModal);
+            this.loadTickets(); // Перезагружаем список после удаления
+        } catch (e) {
+            console.error('Ошибка удаления тикета:', e);
+            alert('Не удалось удалить тикет. Возможно, он уже был удален.');
+        }
     }
 
     async toggleStatus(id, isDone) {
-        await fetch(`${this.apiUrl}/?method=updateById&id=${id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: isDone })
-        });
+        try {
+            const response = await fetch(`${this.apiUrl}/?method=updateById&id=${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: isDone })
+            });
+            if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`);
+            
+        } catch (e) {
+            console.error('Ошибка изменения статуса:', e);
+            alert('Не удалось сохранить статус тикета на сервере.');
+            // Возвращаем чекбокс в исходное положение, так как сервер не принял изменения
+            const checkbox = document.querySelector(`.ticket[data-id="${id}"] .ticket-status`);
+            if (checkbox) checkbox.checked = !isDone;
+        }
     }
 
     async toggleDetails(id, ticketEl) {
         let detailsEl = ticketEl.querySelector('.ticket-details');
 
-        // Если описание еще не загружено - грузим с сервера
-        if (!detailsEl) {
-            const response = await fetch(`${this.apiUrl}/?method=ticketById&id=${id}`);
-            const fullTicket = await response.json();
+        try {
+            // Если описание еще не загружено - грузим с сервера
+            if (!detailsEl) {
+                const response = await fetch(`${this.apiUrl}/?method=ticketById&id=${id}`);
+                if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`);
+                
+                const fullTicket = await response.json();
 
-            detailsEl = document.createElement('div');
-            detailsEl.className = 'ticket-details';
-            detailsEl.textContent = fullTicket.description || 'Нет подробного описания';
-            ticketEl.querySelector('.ticket-content').appendChild(detailsEl);
+                detailsEl = document.createElement('div');
+                detailsEl.className = 'ticket-details';
+                detailsEl.textContent = fullTicket.description || 'Нет подробного описания';
+                ticketEl.querySelector('.ticket-content').appendChild(detailsEl);
+            }
+
+            // Переключаем видимость
+            detailsEl.style.display = detailsEl.style.display === 'block' ? 'none' : 'block';
+        } catch (e) {
+            console.error('Ошибка загрузки деталей тикета:', e);
+            alert('Не удалось загрузить подробное описание тикета.');
         }
-
-        // Переключаем видимость
-        detailsEl.style.display = detailsEl.style.display === 'block' ? 'none' : 'block';
     }
 
     // --- UI И ОТРИСОВКА ---
